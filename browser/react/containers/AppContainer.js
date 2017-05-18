@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import axios from 'axios';
-
+import {hashHistory} from 'react-router';
 import initialState from '../initialState';
 import AUDIO from '../audio';
 
@@ -23,6 +23,9 @@ export default class AppContainer extends Component {
     this.prev = this.prev.bind(this);
     this.selectAlbum = this.selectAlbum.bind(this);
     this.selectArtist = this.selectArtist.bind(this);
+    this.addPlaylist = this.addPlaylist.bind(this);
+    this.fetchPlaylist = this.fetchPlaylist.bind(this);
+    this.addSongToPlaylist = this.addSongToPlaylist.bind(this);
   }
 
   componentDidMount () {
@@ -34,6 +37,10 @@ export default class AppContainer extends Component {
       ])
       .then(res => res.map(r => r.data))
       .then(data => this.onLoad(...data));
+
+    axios.get('/api/playlists/')
+    .then(res=>res.data)
+    .then(playlists => this.setState({ playlists }))
 
     AUDIO.addEventListener('ended', () =>
       this.next());
@@ -124,19 +131,52 @@ export default class AppContainer extends Component {
     this.setState({ selectedArtist: artist });
   }
 
+  addPlaylist(playlist){
+    axios.post('/api/playlists', {
+      name: playlist
+    })
+      .then(res => res.data)
+      .then(playlist => {
+        this.setState({ 
+          playlists: [...this.state.playlists, playlist] 
+        })
+        hashHistory.push(`/playlists/${playlist.id}`);
+      });
+  }
+
+  fetchPlaylist(id){
+    axios.get(`/api/playlists/${id}`)
+    .then(res => res.data)
+    .then(singlePlaylist => {
+      singlePlaylist.songs = singlePlaylist.songs.map(convertSong)
+      this.setState({
+        selectedPlaylist: singlePlaylist
+      })
+    })
+  }
+
+  addSongToPlaylist(song){
+    this.setState({
+      selectedPlaylist: Object.assign({}, this.state.selectedPlaylist, {songs: [...this.state.selectedPlaylist.songs, convertSong(song)]})
+    })
+  }
+
   render () {
 
     const props = Object.assign({}, this.state, {
       toggleOne: this.toggleOne,
       toggle: this.toggle,
       selectAlbum: this.selectAlbum,
-      selectArtist: this.selectArtist
+      selectArtist: this.selectArtist,
+      addPlaylist: this.addPlaylist,
+      fetchPlaylist: this.fetchPlaylist,
+      addSongToPlaylist: this.addSongToPlaylist
     });
 
     return (
       <div id="main" className="container-fluid">
         <div className="col-xs-2">
-          <Sidebar />
+          <Sidebar playlists = {this.state.playlists}/>
         </div>
         <div className="col-xs-10">
         {
